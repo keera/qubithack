@@ -14,11 +14,11 @@ This program consists of the selection engine (`Selection`), the lexer (`Lexer`)
 
     Example: `img.some_class`
 
-* basic combinators
+* Basic combinators
 
     Example: `div #some_id`
 
 ### Comments
 
-* I added a couple of extra tests for the grouping feature
-* This was a pretty fun exercise!
+* I added a couple of extra tests for the grouping feature.
+* This was a pretty fun exercise! Thanks for reviewing.
