@@ -17,8 +17,6 @@
     this.resultSet = [[root]];
   };
 
-  var selection;
-
   /**
    * Selection prototype
    */
