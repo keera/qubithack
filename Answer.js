@@ -221,9 +221,10 @@
   var selector = function(tok) {
     matcher.useDescendentSearch();
     simpleSelectorSequence(tok);
-    while (combinator(peekTok()) && eatTok()) {
-      simpleSelectorSequence(getTok());
-    }
+    while (combinator(peekTok())
+        && getTok()
+        && simpleSelectorSequence(peekTok())
+        && getTok());
   };
 
   var simpleSelectorSequence = function(tok) {
