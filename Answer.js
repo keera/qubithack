@@ -1,45 +1,45 @@
 (function(window) {
 
-  var Matcher = function(root) {
+  var Match = function(root) {
     this.root = root;
     this.currValue;
     this.currResults;
     this.visited = [];
     this.results = [[root]];
-    this.matcher = this.idMatcher;
+    this.matcher = this.idMatch;
     this.search = this.searchDescendents;
   };
 
-  Matcher.Attr = {
+  Match.Attr = {
     ID: "id",
     CLASS: "class",
     TAG: "tag"
   };
 
-  Matcher.prototype.newMatch = function() {
+  Match.prototype.newMatch = function() {
     this.results.push([this.root]);
   };
 
-  Matcher.prototype.getResults = function() {
+  Match.prototype.getResults = function() {
     return [].concat.apply([], this.results);
   };
 
-  Matcher.prototype.idMatcher = function(obj) {
+  Match.prototype.idMatch = function(obj) {
     if (!obj.id) return false;
     return obj.id === this.currValue;
   };
 
-  Matcher.prototype.tagMatcher = function(obj) {
+  Match.prototype.tagMatch = function(obj) {
     if (!obj.tagName) return false;
     return obj.tagName.toLowerCase() === this.currValue.toLowerCase();
   };
 
-  Matcher.prototype.classMatcher = function(obj) {
+  Match.prototype.classMatch = function(obj) {
     if (!obj.className) return false;
     return obj.classList.contains(this.currValue);
   };
 
-  Matcher.prototype.searchCurrent = function(obj) {
+  Match.prototype.searchCurrent = function(obj) {
     if (!obj) return;
     if (this.visited.indexOf(obj) >= 0) return;
     if (this.matcher(obj)) {
@@ -48,7 +48,7 @@
     }
   };
 
-  Matcher.prototype.searchDescendents = function(obj) {
+  Match.prototype.searchDescendents = function(obj) {
     if (!obj) return;
     this.searchCurrent(obj);
     var children = obj.childNodes;
@@ -60,7 +60,7 @@
     }
   };
 
-  Matcher.prototype.searchChildren = function(obj) {
+  Match.prototype.searchChildren = function(obj) {
     if (!obj) return;
     var children = obj.childNodes;
     for (var i = 0; i < children.length; i++) {
@@ -69,17 +69,17 @@
     }
   };
 
-  Matcher.prototype.searchElements = function(attr, value) {
+  Match.prototype.searchElements = function(attr, value) {
     this.currValue = value;
     switch (attr) {
-      case Matcher.Attr.ID:
-        this.matcher = this.idMatcher;
+      case Match.Attr.ID:
+        this.matcher = this.idMatch;
       break;
-      case Matcher.Attr.TAG:
-        this.matcher = this.tagMatcher;
+      case Match.Attr.TAG:
+        this.matcher = this.tagMatch;
       break;
-      case Matcher.Attr.CLASS:
-        this.matcher = this.classMatcher;
+      case Match.Attr.CLASS:
+        this.matcher = this.classMatch;
       break;
     }
     // Get one at top of stack
@@ -90,31 +90,31 @@
     this.visited.length = 0;
   };
 
-  Matcher.prototype.searchElementsById = function(value) {
-    this.searchElements(Matcher.Attr.ID, value);
+  Match.prototype.searchElementsById = function(value) {
+    this.searchElements(Match.Attr.ID, value);
   };
 
-  Matcher.prototype.searchElementsByClassName = function(value) {
-    this.searchElements(Matcher.Attr.CLASS, value);
+  Match.prototype.searchElementsByClassName = function(value) {
+    this.searchElements(Match.Attr.CLASS, value);
   };
 
-  Matcher.prototype.searchElementsByTagName = function(value) {
-    this.searchElements(Matcher.Attr.TAG, value);
+  Match.prototype.searchElementsByTagName = function(value) {
+    this.searchElements(Match.Attr.TAG, value);
   };
 
-  Matcher.prototype.useCurrentSearch = function() {
+  Match.prototype.useCurrentSearch = function() {
     this.search = this.searchCurrent;
   };
 
-  Matcher.prototype.useDescendentSearch = function() {
+  Match.prototype.useDescendentSearch = function() {
     this.search = this.searchDescendents;
   };
 
-  Matcher.prototype.useChildrenSearch = function() {
+  Match.prototype.useChildrenSearch = function() {
     this.search = this.searchChildren;
   };
 
-  window.Matcher = Matcher;
+  window.Match = Match;
 })(window);
 
 (function(window) {
@@ -272,6 +272,6 @@
 })(window);
 
 var $ = function (selector) {
-  return Parser.$(selector, new Matcher(document));
+  return Parser.$(selector, new Match(document));
 }
 
