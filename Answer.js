@@ -8,6 +8,12 @@
     this.search = this.searchDescendents;
   };
 
+  Matcher.Attr = {
+    ID: "id",
+    CLASS: "class",
+    TAG: "tag"
+  };
+
   Matcher.prototype.idMatcher = function(obj) {
     if (!obj.id) return false;
     return obj.id === this.currValue;
@@ -21,25 +27,6 @@
   Matcher.prototype.classMatcher = function(obj) {
     if (!obj.className) return false;
     return obj.classList.contains(this.currValue);
-  };
-
-  Matcher.prototype.searchElements = function(type, value) {
-    this.currValue = value;
-    switch (type) {
-      case "id":
-        this.matcher = this.idMatcher;
-      break;
-      case "tag":
-        this.matcher = this.tagMatcher;
-      break;
-      case "class":
-        this.matcher = this.classMatcher;
-      break;
-    }
-    for (var i = 0, len = this.results.length; i < len; i++) {
-      this.search(this.results.shift());
-    }
-    this.visited.length = 0;
   };
 
   Matcher.prototype.searchCurrent = function(obj) {
@@ -72,10 +59,53 @@
     }
   };
 
+  Matcher.prototype.searchElements = function(attr, value) {
+    this.currValue = value;
+    switch (attr) {
+      case Matcher.Attr.ID:
+        this.matcher = this.idMatcher;
+      break;
+      case Matcher.Attr.TAG:
+        this.matcher = this.tagMatcher;
+      break;
+      case Matcher.Attr.CLASS:
+        this.matcher = this.classMatcher;
+      break;
+    }
+    for (var i = 0, len = this.results.length; i < len; i++) {
+      this.search(this.results.shift());
+    }
+    this.visited.length = 0;
+  };
+
+  Matcher.prototype.searchElementsById = function(value) {
+    this.searchElements(Matcher.Attr.ID, value);
+  };
+
+  Matcher.prototype.searchElementsByClassName = function(value) {
+    this.searchElements(Matcher.Attr.CLASS, value);
+  };
+
+  Matcher.prototype.searchElementsByTagName = function(value) {
+    this.searchElements(Matcher.Attr.TAG, value);
+  };
+
+  Matcher.prototype.useCurrentSearch = function() {
+    this.search = this.searchCurrent;
+  };
+
+  Matcher.prototype.useDescendentSearch = function() {
+    this.search = this.searchDescendents;
+  };
+
+  Matcher.prototype.useChildrenSearch = function() {
+    this.search = this.searchChildren;
+  };
+
   window.Matcher = Matcher;
 })(window);
 
-(function(window, Matcher) {
+(function(window) {
 
   var matcher, toks;
 
@@ -173,7 +203,7 @@
   };
 
   var selector = function(tok) {
-    matcher.search = matcher.searchDescendents;
+    matcher.useDescendentSearch();
     simpleSelectorSequence(tok);
     tok = getTok();
     while (combinator(tok)) {
@@ -184,7 +214,7 @@
 
   var simpleSelectorSequence = function(tok) {
     if (typeSelector(tok) || specialSelector(tok)) {
-      matcher.search = matcher.searchCurrent;
+      matcher.useCurrentSearch();
       while (specialSelector(peekTok()) && getTok());
     }
   };
@@ -192,7 +222,7 @@
   var typeSelector = function(tok) {
     if (!tok) return;
     if (tok.name === tokens.IDENT) {
-      matcher.searchElements("tag", tok.value);
+      matcher.searchElementsByTagName(tok.value);
       return tok;
     }
   };
@@ -200,10 +230,10 @@
   var specialSelector = function(tok) {
     if (!tok) return;
     if (tok.name === tokens.HASH) {
-      matcher.searchElements("id", tok.value);
+      matcher.searchElementsById(tok.value);
       return tok;
     } else if (tok.name === tokens.CLASS) {
-      matcher.searchElements("class", tok.value);
+      matcher.searchElementsByClassName(tok.value);
       return tok;
     }
   };
@@ -211,23 +241,22 @@
   var combinator = function(tok) {
     if (!tok) return;
     if (tok.name === tokens.SPACE) {
-      matcher.search = matcher.searchDescendents;
+      matcher.useDescendentSearch();
       return tok;
     }
   };
 
   window.Parser = {
-    $: function(str) {
-      var root = window.document;
-      matcher = new Matcher(root);
+    $: function(str, matchStrategy) {
+      matcher = matchStrategy;
       toks = tokenize(str);
       selectorGroup(getTok());
       return matcher.results;
     }
   }
-})(window, Matcher);
+})(window);
 
 var $ = function (selector) {
-  return Parser.$(selector);
+  return Parser.$(selector, new Matcher(document));
 }
 
