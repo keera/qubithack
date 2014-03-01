@@ -1,9 +1,11 @@
 (function(window) {
 
   var Matcher = function(root) {
+    this.root = root;
     this.currValue;
+    this.currResults;
     this.visited = [];
-    this.results = [root];
+    this.results = [[root]];
     this.matcher = this.idMatcher;
     this.search = this.searchDescendents;
   };
@@ -12,6 +14,14 @@
     ID: "id",
     CLASS: "class",
     TAG: "tag"
+  };
+
+  Matcher.prototype.newMatch = function() {
+    this.results.push([this.root]);
+  };
+
+  Matcher.prototype.getResults = function() {
+    return [].concat.apply([], this.results);
   };
 
   Matcher.prototype.idMatcher = function(obj) {
@@ -33,7 +43,7 @@
     if (!obj) return;
     if (this.visited.indexOf(obj) >= 0) return;
     if (this.matcher(obj)) {
-      this.results.push(obj);
+      this.currResults.push(obj);
       this.visited.push(obj);
     }
   };
@@ -72,8 +82,10 @@
         this.matcher = this.classMatcher;
       break;
     }
-    for (var i = 0, len = this.results.length; i < len; i++) {
-      this.search(this.results.shift());
+    // Get one at top of stack
+    this.currResults = this.results[this.results.length-1];
+    for (var i = 0, len = this.currResults.length; i < len; i++) {
+      this.search(this.currResults.shift());
     }
     this.visited.length = 0;
   };
@@ -113,14 +125,16 @@
     IDENT: "ident",
     SPACE: "space",
     HASH:  "hash",
-    CLASS: "class"
+    CLASS: "class",
+    COMMA: "comma"
   };
 
   var order = [
     tokens.IDENT,
     tokens.HASH,
     tokens.CLASS,
-    tokens.SPACE
+    tokens.SPACE,
+    tokens.COMMA
   ];
 
   var TokenPattern = function() {
@@ -136,6 +150,7 @@
     this[tokens.SPACE] = new RegExp("^" + space);
     this[tokens.HASH] = new RegExp("^#" + name);
     this[tokens.CLASS] = new RegExp("^\\." + name);
+    this[tokens.COMMA] = new RegExp("^" + w + "\\,");
   };
 
   var Token = function(name, value) {
@@ -191,9 +206,10 @@
   var selectorGroup = function(tok) {
     selector(tok);
     tok = getTok();
-    while (tok && tok.name === 'comma') {
+    while (tok && tok.name === tokens.COMMA) {
+      matcher.newMatch();
       tok = getTok();
-      if (tok.name == tokens.SPACE) {
+      if (tok.name === tokens.SPACE) {
         selector(getTok());
       } else {
         selector(tok);
@@ -205,10 +221,8 @@
   var selector = function(tok) {
     matcher.useDescendentSearch();
     simpleSelectorSequence(tok);
-    tok = getTok();
-    while (combinator(tok)) {
+    while (combinator(peekTok()) && eatTok()) {
       simpleSelectorSequence(getTok());
-      tok = getTok();
     }
   };
 
@@ -251,7 +265,7 @@
       matcher = matchStrategy;
       toks = tokenize(str);
       selectorGroup(getTok());
-      return matcher.results;
+      return matcher.getResults();
     }
   }
 })(window);
