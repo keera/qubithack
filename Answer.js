@@ -26,151 +26,164 @@
   var selection;
 
   /**
-   * Checks if DOM element already exists in current selection
-   *
-   * @param {Object} obj
-   * @return {Boolean}
+   * Selection prototype
    */
 
-  Selection.prototype.contains = function(obj) {
-    return this.resultSet.some(function(results) {
-      return (results.indexOf(obj) >= 0);
-    });
-  };
+  Selection.prototype = {
 
-  /**
-   * new selection due to group selector
-   */
+    /**
+     * Save original constructor
+     */
 
-  Selection.prototype.newSelection = function() {
-    this.resultSet.push([this.root]);
-  };
+    constructor: Selection,
 
-  /**
-   * Combination of multiple selection results
-   */
+    /**
+     * Checks if DOM element already exists in current selection
+     *
+     * @param {Object} obj
+     * @return {Boolean}
+     */
 
-  Selection.prototype.getResults = function() {
-    return [].concat.apply([], this.resultSet);
-  };
+    contains: function(obj) {
+      return this.resultSet.some(function(results) {
+        return (results.indexOf(obj) >= 0);
+      });
+    },
 
-  /**
-   * Filter elements by predicate using an attribute type and target value
-   *
-   * @param {String} type
-   * @param {String} value
-   */
+    /**
+     * new selection due to group selector
+     */
 
-  Selection.prototype.setPredicate = function(type, value) {
-    switch (type) {
-      case Selection.AttrType.ID:
-        this.predicate = function(obj) {
-          if (!obj.id) return false;
-          return obj.id === value;
-        };
-      break;
-      case Selection.AttrType.CLASS:
-        this.predicate = function(obj) {
-          if (!obj.classList) return false;
-          return obj.classList.contains(value);
-        };
-      break;
-      case Selection.AttrType.TAG:
-        this.predicate = function(obj) {
-          if (!obj.tagName) return false;
-          return obj.tagName.toLowerCase() === value.toLowerCase();
-        };
-      break;
-    }
-  };
+    newSelection: function() {
+      this.resultSet.push([this.root]);
+    },
 
-  /**
-   * Filtering strategy that applies predicate to current node
-   *
-   * @param {Object} obj
-   */
+    /**
+     * Combination of multiple selection results
+     */
 
-  Selection.prototype.filterCurrent = function(obj) {
-    if (!obj || this.contains(obj)) return;
-    if (this.predicate(obj)) {
-      this.currResults.push(obj);
-      this.visited.push(obj);
-    }
-  };
+    getResults: function() {
+      return [].concat.apply([], this.resultSet);
+    },
 
-  /**
-   * Filtering strategy that applies predicate to descendent nodes
-   *
-   * @param {Object} obj
-   */
+    /**
+     * Filter elements by predicate using an attribute type and target value
+     *
+     * @param {String} type
+     * @param {String} value
+     */
 
-  Selection.prototype.filterDescendents = function(obj) {
-    if (!obj) return;
-    this.filterCurrent(obj);
-    var children = obj.childNodes;
-    for (var i = 0; i < children.length; i++) {
-      var child = children[i];
-      if (child.nodeType == Node.ELEMENT_NODE) {
-        this.filterDescendents(child);
+    setPredicate: function(type, value) {
+      switch (type) {
+        case Selection.AttrType.ID:
+          this.predicate = function(obj) {
+            if (!obj.id) return false;
+            return obj.id === value;
+          };
+        break;
+        case Selection.AttrType.CLASS:
+          this.predicate = function(obj) {
+            if (!obj.classList) return false;
+            return obj.classList.contains(value);
+          };
+        break;
+        case Selection.AttrType.TAG:
+          this.predicate = function(obj) {
+            if (!obj.tagName) return false;
+            return obj.tagName.toLowerCase() === value.toLowerCase();
+          };
+        break;
       }
+    },
+
+    /**
+     * Filtering strategy that applies predicate to current node
+     *
+     * @param {Object} obj
+     */
+
+    filterCurrent: function(obj) {
+      if (!obj || this.contains(obj)) return;
+      if (this.predicate(obj)) {
+        this.currResults.push(obj);
+        this.visited.push(obj);
+      }
+    },
+
+    /**
+     * Filtering strategy that applies predicate to descendent nodes
+     *
+     * @param {Object} obj
+     */
+
+    filterDescendents: function(obj) {
+      if (!obj) return;
+      this.filterCurrent(obj);
+      var children = obj.childNodes;
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        if (child.nodeType == Node.ELEMENT_NODE) {
+          this.filterDescendents(child);
+        }
+      }
+    },
+
+    /**
+     * Filtering strategy that applies predicate to child nodes
+     *
+     * @param {Object} obj
+     */
+
+    filterChildren: function(obj) {
+      if (!obj) return;
+      var children = obj.childNodes;
+      for (var i = 0; i < children.length; i++) {
+        var child = children[i];
+        this.filterCurrent(child);
+      }
+    },
+
+    setCurrentFilter: function() {
+      this.currFilter = this.filterCurrent;
+    },
+
+    setDescendentFilter: function() {
+      this.currFilter = this.filterDescendents;
+    },
+
+    setChildrenFilter: function() {
+      this.currFilter = this.filterChildren;
+    },
+
+    /**
+     * Get the matching elements using a predicate and a filter strategy
+     *
+     * @param {String} attr
+     * @param {String} value
+     */
+
+    getElements: function(attr, value) {
+      this.setPredicate(attr, value);
+      // Get most recent results at top of stack
+      this.currResults = this.resultSet[this.resultSet.length-1];
+      for (var i = 0, len = this.currResults.length; i < len; i++) {
+        this.currFilter(this.currResults.shift());
+      }
+      // Clear visit cache for subsequence search
+      this.visited.length = 0;
+    },
+
+    getElementsById: function(value) {
+      this.getElements(Selection.AttrType.ID, value);
+    },
+
+    getElementsByClassName: function(value) {
+      this.getElements(Selection.AttrType.CLASS, value);
+    },
+
+    getElementsByTagName: function(value) {
+      this.getElements(Selection.AttrType.TAG, value);
     }
-  };
-
-  /**
-   * Filtering strategy that applies predicate to child nodes
-   *
-   * @param {Object} obj
-   */
-
-  Selection.prototype.filterChildren = function(obj) {
-    if (!obj) return;
-    var children = obj.childNodes;
-    for (var i = 0; i < children.length; i++) {
-      var child = children[i];
-      this.filterCurrent(child);
-    }
-  };
-
-  Selection.prototype.setCurrentFilter = function() {
-    this.currFilter = this.filterCurrent;
-  };
-
-  Selection.prototype.setDescendentFilter = function() {
-    this.currFilter = this.filterDescendents;
-  };
-
-  Selection.prototype.setChildrenFilter = function() {
-    this.currFilter = this.filterChildren;
-  };
-
-  /**
-   * Get the matching elements using a predicate and a filter strategy
-   *
-   * @param {String} attr
-   * @param {String} value
-   */
-
-  Selection.prototype.getElements = function(attr, value) {
-    this.setPredicate(attr, value);
-    // Get most recent results at top of stack
-    this.currResults = this.resultSet[this.resultSet.length-1];
-    for (var i = 0, len = this.currResults.length; i < len; i++) {
-      this.currFilter(this.currResults.shift());
-    }
-    // Clear visit cache for subsequence search
-    this.visited.length = 0;
-  };
-
-  Selection.prototype.getElementsById = function(value) {
-    this.getElements(Selection.AttrType.ID, value);
-  };
-
-  Selection.prototype.getElementsByClassName = function(value) {
-    this.getElements(Selection.AttrType.CLASS, value);
-  };
-
-  Selection.prototype.getElementsByTagName = function(value) {
-    this.getElements(Selection.AttrType.TAG, value);
   };
 
   var tokens = [];
