@@ -1,127 +1,189 @@
+"use strict";
+
 (function(window) {
 
-  var Match = function(root) {
+  /**
+   * Initialize `Selection` with given root node for traversing
+   *
+   * @param {Object} root
+   */
+
+  var Selection = function(root) {
     this.root = root;
-    this.currValue;
+    this.currFilter;
+    this.currPredicate;
     this.currResults;
     this.visited = [];
-    this.results = [[root]];
-    this.matcher = this.idMatch;
-    this.search = this.searchDescendents;
+    this.resultSet = [[root]];
   };
 
-  Match.Attr = {
+  Selection.AttrType = {
     ID: "id",
     CLASS: "class",
     TAG: "tag"
   };
 
-  Match.prototype.newMatch = function() {
-    this.results.push([this.root]);
+  var selection;
+
+  /**
+   * Checks if DOM element already exists in current selection
+   *
+   * @param {Object} obj
+   * @return {Boolean}
+   */
+
+  Selection.prototype.contains = function(obj) {
+    return this.resultSet.some(function(results) {
+      return (results.indexOf(obj) >= 0);
+    });
   };
 
-  Match.prototype.getResults = function() {
-    return [].concat.apply([], this.results);
+  /**
+   * new selection due to group selector
+   */
+
+  Selection.prototype.newSelection = function() {
+    this.resultSet.push([this.root]);
   };
 
-  Match.prototype.idMatch = function(obj) {
-    if (!obj.id) return false;
-    return obj.id === this.currValue;
+  /**
+   * Combination of multiple selection results
+   */
+
+  Selection.prototype.getResults = function() {
+    return [].concat.apply([], this.resultSet);
   };
 
-  Match.prototype.tagMatch = function(obj) {
-    if (!obj.tagName) return false;
-    return obj.tagName.toLowerCase() === this.currValue.toLowerCase();
+  /**
+   * Filter elements by predicate using an attribute type and target value
+   *
+   * @param {String} type
+   * @param {String} value
+   */
+
+  Selection.prototype.setPredicate = function(type, value) {
+    switch (type) {
+      case Selection.AttrType.ID:
+        this.predicate = function(obj) {
+          if (!obj.id) return false;
+          return obj.id === value;
+        };
+      break;
+      case Selection.AttrType.CLASS:
+        this.predicate = function(obj) {
+          if (!obj.classList) return false;
+          return obj.classList.contains(value);
+        };
+      break;
+      case Selection.AttrType.TAG:
+        this.predicate = function(obj) {
+          if (!obj.tagName) return false;
+          return obj.tagName.toLowerCase() === value.toLowerCase();
+        };
+      break;
+    }
   };
 
-  Match.prototype.classMatch = function(obj) {
-    if (!obj.className) return false;
-    return obj.classList.contains(this.currValue);
-  };
+  /**
+   * Filtering strategy that applies predicate to current node
+   *
+   * @param {Object} obj
+   */
 
-  Match.prototype.searchCurrent = function(obj) {
-    if (!obj) return;
-    if (this.visited.indexOf(obj) >= 0) return;
-    if (this.matcher(obj)) {
+  Selection.prototype.filterCurrent = function(obj) {
+    if (!obj || this.contains(obj)) return;
+    if (this.predicate(obj)) {
       this.currResults.push(obj);
       this.visited.push(obj);
     }
   };
 
-  Match.prototype.searchDescendents = function(obj) {
+  /**
+   * Filtering strategy that applies predicate to descendent nodes
+   *
+   * @param {Object} obj
+   */
+
+  Selection.prototype.filterDescendents = function(obj) {
     if (!obj) return;
-    this.searchCurrent(obj);
+    this.filterCurrent(obj);
     var children = obj.childNodes;
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
       if (child.nodeType == Node.ELEMENT_NODE) {
-        this.searchDescendents(child);
+        this.filterDescendents(child);
       }
     }
   };
 
-  Match.prototype.searchChildren = function(obj) {
+  /**
+   * Filtering strategy that applies predicate to child nodes
+   *
+   * @param {Object} obj
+   */
+
+  Selection.prototype.filterChildren = function(obj) {
     if (!obj) return;
     var children = obj.childNodes;
     for (var i = 0; i < children.length; i++) {
       var child = children[i];
-      this.searchCurrent(child);
+      this.filterCurrent(child);
     }
   };
 
-  Match.prototype.searchElements = function(attr, value) {
-    this.currValue = value;
-    switch (attr) {
-      case Match.Attr.ID:
-        this.matcher = this.idMatch;
-      break;
-      case Match.Attr.TAG:
-        this.matcher = this.tagMatch;
-      break;
-      case Match.Attr.CLASS:
-        this.matcher = this.classMatch;
-      break;
-    }
-    // Get one at top of stack
-    this.currResults = this.results[this.results.length-1];
+  Selection.prototype.setCurrentFilter = function() {
+    this.currFilter = this.filterCurrent;
+  };
+
+  Selection.prototype.setDescendentFilter = function() {
+    this.currFilter = this.filterDescendents;
+  };
+
+  Selection.prototype.setChildrenFilter = function() {
+    this.currFilter = this.filterChildren;
+  };
+
+  /**
+   * Get the matching elements using a predicate and a filter strategy
+   *
+   * @param {String} attr
+   * @param {String} value
+   */
+
+  Selection.prototype.getElements = function(attr, value) {
+    this.setPredicate(attr, value);
+    // Get most recent results at top of stack
+    this.currResults = this.resultSet[this.resultSet.length-1];
     for (var i = 0, len = this.currResults.length; i < len; i++) {
-      this.search(this.currResults.shift());
+      this.currFilter(this.currResults.shift());
     }
+    // Clear visit cache for subsequence search
     this.visited.length = 0;
   };
 
-  Match.prototype.searchElementsById = function(value) {
-    this.searchElements(Match.Attr.ID, value);
+  Selection.prototype.getElementsById = function(value) {
+    this.getElements(Selection.AttrType.ID, value);
   };
 
-  Match.prototype.searchElementsByClassName = function(value) {
-    this.searchElements(Match.Attr.CLASS, value);
+  Selection.prototype.getElementsByClassName = function(value) {
+    this.getElements(Selection.AttrType.CLASS, value);
   };
 
-  Match.prototype.searchElementsByTagName = function(value) {
-    this.searchElements(Match.Attr.TAG, value);
+  Selection.prototype.getElementsByTagName = function(value) {
+    this.getElements(Selection.AttrType.TAG, value);
   };
 
-  Match.prototype.useCurrentSearch = function() {
-    this.search = this.searchCurrent;
+  var tokens = [];
+
+  var getTok = function() {
+    return tokens.shift();
   };
 
-  Match.prototype.useDescendentSearch = function() {
-    this.search = this.searchDescendents;
+  var peekTok = function() {
+    return tokens[0];
   };
 
-  Match.prototype.useChildrenSearch = function() {
-    this.search = this.searchChildren;
-  };
-
-  window.Match = Match;
-})(window);
-
-(function(window) {
-
-  var matcher, toks;
-
-  var tokens = {
+  var TokenType = {
     IDENT: "ident",
     SPACE: "space",
     HASH:  "hash",
@@ -129,40 +191,16 @@
     COMMA: "comma"
   };
 
-  var order = [
-    tokens.IDENT,
-    tokens.HASH,
-    tokens.CLASS,
-    tokens.SPACE,
-    tokens.COMMA
-  ];
-
-  var TokenPattern = function() {
-    // Basic patterns
-    var nmstart = "[_a-z]";
-    var nmchar = "[_a-z0-9-]";
-    var name = nmchar + "+";
-    var ident = "[-]?" + nmstart + nmchar + "*";
-    var space = "[ \\t\\r\\n\\f]+";
-    var w = "[ \\t\\r\\n\\f]*";
-    // Token patterns
-    this[tokens.IDENT] = new RegExp("^" + ident);
-    this[tokens.SPACE] = new RegExp("^" + space);
-    this[tokens.HASH] = new RegExp("^#" + name);
-    this[tokens.CLASS] = new RegExp("^\\." + name);
-    this[tokens.COMMA] = new RegExp("^" + w + "\\,");
-  };
-
   var Token = function(name, value) {
     this.name = name;
     switch (name) {
-      case tokens.SPACE:
+      case TokenType.SPACE:
         this.value = " ";
       break;
-      case tokens.HASH:
+      case TokenType.HASH:
         this.value = value.slice(1);
       break;
-      case tokens.CLASS:
+      case TokenType.CLASS:
         this.value = value.slice(1);
       break;
       default:
@@ -171,45 +209,52 @@
     }
   };
 
-  var tokPattern = new TokenPattern();
+  var TokenPattern = (function() {
+    // Basic patterns
+    var nmstart = "[_a-z]";
+    var nmchar = "[_a-z0-9-]";
+    var name = nmchar + "+";
+    var ident = "[-]?" + nmstart + nmchar + "*";
+    var space = "[ \\t\\r\\n\\f]+";
+    var w = "[ \\t\\r\\n\\f]*";
+    // Token patterns
+    var patterns = {};
+    patterns[TokenType.IDENT] = new RegExp("^" + ident),
+    patterns[TokenType.SPACE] = new RegExp("^" + space),
+    patterns[TokenType.HASH] = new RegExp("^#" + name),
+    patterns[TokenType.CLASS] = new RegExp("^\\." + name),
+    patterns[TokenType.COMMA] = new RegExp("^" + w + "\\,")
+    return patterns;
+  })();
 
   var tokenize = function(str) {
-    var matches = [];
+    var tokens = [];
     while (str.length) {
-      var hasMatch = false;
-      for (var k in order) {
-        var tokName = order[k];
-        var match = str.match(tokPattern[tokName]);
+      var hasSelection = false;
+      for (var k in TokenType) {
+        var tokName = TokenType[k];
+        var match = str.match(TokenPattern[tokName]);
         if (match) {
-          hasMatch = true;
+          hasSelection = true;
           var val = match[0];
-          matches.push(new Token(tokName, val));
+          tokens.push(new Token(tokName, val));
           str = str.slice(val.length);
           break;
         }
       }
 
-      if (!hasMatch) break;
+      if (!hasSelection) break;
     }
-    return matches;
+    return tokens;
   }
-
-  // Parsing
-  var getTok = function() {
-    return toks.shift();
-  };
-
-  var peekTok = function() {
-    return toks[0];
-  };
 
   var selectorGroup = function(tok) {
     selector(tok);
     tok = getTok();
-    while (tok && tok.name === tokens.COMMA) {
-      matcher.newMatch();
+    while (tok && tok.name === TokenType.COMMA) {
+      selection.newSelection();
       tok = getTok();
-      if (tok.name === tokens.SPACE) {
+      if (tok.name === TokenType.SPACE) {
         selector(getTok());
       } else {
         selector(tok);
@@ -219,7 +264,7 @@
   };
 
   var selector = function(tok) {
-    matcher.useDescendentSearch();
+    selection.setDescendentFilter();
     simpleSelectorSequence(tok);
     while (combinator(peekTok())
         && getTok()
@@ -229,49 +274,49 @@
 
   var simpleSelectorSequence = function(tok) {
     if (typeSelector(tok) || specialSelector(tok)) {
-      matcher.useCurrentSearch();
+      selection.setCurrentFilter();
       while (specialSelector(peekTok()) && getTok());
     }
   };
 
   var typeSelector = function(tok) {
     if (!tok) return;
-    if (tok.name === tokens.IDENT) {
-      matcher.searchElementsByTagName(tok.value);
+    if (tok.name === TokenType.IDENT) {
+      selection.getElementsByTagName(tok.value);
       return tok;
     }
   };
 
   var specialSelector = function(tok) {
     if (!tok) return;
-    if (tok.name === tokens.HASH) {
-      matcher.searchElementsById(tok.value);
+    if (tok.name === TokenType.HASH) {
+      selection.getElementsById(tok.value);
       return tok;
-    } else if (tok.name === tokens.CLASS) {
-      matcher.searchElementsByClassName(tok.value);
+    } else if (tok.name === TokenType.CLASS) {
+      selection.getElementsByClassName(tok.value);
       return tok;
     }
   };
 
   var combinator = function(tok) {
     if (!tok) return;
-    if (tok.name === tokens.SPACE) {
-      matcher.useDescendentSearch();
+    if (tok.name === TokenType.SPACE) {
+      selection.setDescendentFilter();
       return tok;
     }
   };
 
   window.Parser = {
-    $: function(str, matchStrategy) {
-      matcher = matchStrategy;
-      toks = tokenize(str);
+    $: function(str) {
+      selection = new Selection(document);
+      tokens = tokenize(str);
       selectorGroup(getTok());
-      return matcher.getResults();
+      return selection.getResults();
     }
   }
 })(window);
 
 var $ = function (selector) {
-  return Parser.$(selector, new Match(document));
+  return Parser.$(selector);
 }
 
