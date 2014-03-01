@@ -2,7 +2,7 @@
 
 ### Description
 
-This program consists of the selection engine (`Selection`), the lexer (`Lexer`), and the parser (`Parser`). The grammar is a pared version of the official grammar , but it's extensible.
+This program consists of the selection engine (`Selection`), the lexer (`Lexer`), and the parser (`Parser`). The grammar is a pared down version of the official grammar , but it's extensible.
 
 ### Features
 
